@@ -1,7 +1,8 @@
 import { test, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { Status, resetStore, submitRequest, startReview, returnForInfo, withdrawRequest } from '../src/requests.js';
-import { handleRequest, errorResponse, startServer } from '../src/server.js';
+import http from 'node:http';
+import { Status, resetStore, submitRequest, startReview, returnForInfo, withdrawRequest, listRequestsByCitizen } from '../src/requests.js';
+import { handleRequest, errorResponse, startServer, checkSameMachine } from '../src/server.js';
 
 beforeEach(() => resetStore());
 
@@ -184,5 +185,110 @@ test('startServer binds to 127.0.0.1 and serves one round trip', async () => {
   assert.equal(res.headers.get('content-type'), 'application/json');
   const body = await res.json();
   assert.equal(body.status, Status.SUBMITTED);
+  await new Promise((resolve) => server.close(resolve));
+});
+
+// --- Same-machine guard (#2) -------------------------------------------------
+
+const local = { host: '127.0.0.1:3000' };
+const jsonType = { 'content-type': 'application/json' };
+/** @param {{ body: unknown } | null} res */
+const codeOf = (res) => (res ? /** @type {{ code?: string }} */ (res.body).code : undefined);
+
+test('same-machine guard allows 127.0.0.1 and localhost with the server port', () => {
+  assert.equal(checkSameMachine({ method: 'GET', port: 3000, headers: local }), null);
+  assert.equal(checkSameMachine({ method: 'GET', port: 3000, headers: { host: 'LOCALHOST:3000' } }), null);
+  assert.equal(
+    checkSameMachine({ method: 'POST', port: 3000, headers: { ...local, ...jsonType, origin: 'http://localhost:3000' } }),
+    null,
+  );
+});
+
+test('same-machine guard rejects a foreign, missing, or wrong-port Host with 421', () => {
+  for (const headers of [{ host: 'attacker.example' }, {}, { host: '127.0.0.1:4000' }, { host: '127.0.0.1' }]) {
+    const res = checkSameMachine({ method: 'GET', port: 3000, headers });
+    assert.equal(res?.status, 421);
+    assert.equal(codeOf(res), 'MISDIRECTED_REQUEST');
+  }
+});
+
+test('same-machine guard rejects a foreign Origin with 403', () => {
+  for (const origin of ['http://attacker.example', 'null', 'https://127.0.0.1:3000', 'http://127.0.0.1:4000']) {
+    const res = checkSameMachine({ method: 'POST', port: 3000, headers: { ...local, ...jsonType, origin } });
+    assert.equal(res?.status, 403);
+    assert.equal(codeOf(res), 'FORBIDDEN_ORIGIN');
+  }
+});
+
+test('same-machine guard rejects a POST that is not application/json with 415', () => {
+  for (const type of [undefined, 'text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data']) {
+    const headers = type === undefined ? local : { ...local, 'content-type': type };
+    const res = checkSameMachine({ method: 'POST', port: 3000, headers });
+    assert.equal(res?.status, 415);
+    assert.equal(codeOf(res), 'UNSUPPORTED_MEDIA_TYPE');
+  }
+  assert.equal(
+    checkSameMachine({ method: 'POST', port: 3000, headers: { ...local, 'content-type': 'application/json; charset=utf-8' } }),
+    null,
+  );
+});
+
+/**
+ * Send one raw request so the test can set a Host header (fetch cannot).
+ * @param {number} port
+ * @param {{ method: string, path: string, headers: Record<string, string>, body?: string }} options
+ * @returns {Promise<{ status: number, body: any }>}
+ */
+function rawRequest(port, { method, path, headers, body }) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, method, path, headers }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, body: JSON.parse(data) }));
+    });
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+
+test('the server rejects the cross-site requests from #2 before they reach a route', async () => {
+  const server = await startServer({ port: 0 });
+  after(() => server.close());
+  const { port } = /** @type {import('node:net').AddressInfo} */ (server.address());
+  const created = submitRequest(c1);
+
+  const crossSitePost = await rawRequest(port, {
+    method: 'POST',
+    path: '/requests',
+    headers: { Host: 'attacker.example', Origin: 'http://attacker.example', 'Content-Type': 'text/plain' },
+    body: json({ citizenId: 'c2', serviceId: 's1' }),
+  });
+  assert.equal(crossSitePost.status, 421);
+
+  const reboundRead = await rawRequest(port, {
+    method: 'GET',
+    path: `/requests/by-reference/${created.referenceNumber}`,
+    headers: { Host: 'attacker.example' },
+  });
+  assert.equal(reboundRead.status, 421);
+  assert.equal(reboundRead.body.code, 'MISDIRECTED_REQUEST');
+
+  const foreignOrigin = await rawRequest(port, {
+    method: 'POST',
+    path: '/requests',
+    headers: { Host: `127.0.0.1:${port}`, Origin: 'http://attacker.example', 'Content-Type': 'application/json' },
+    body: json({ citizenId: 'c2', serviceId: 's1' }),
+  });
+  assert.equal(foreignOrigin.status, 403);
+
+  const textPlain = await rawRequest(port, {
+    method: 'POST',
+    path: '/requests',
+    headers: { Host: `127.0.0.1:${port}`, 'Content-Type': 'text/plain' },
+    body: json({ citizenId: 'c2', serviceId: 's1' }),
+  });
+  assert.equal(textPlain.status, 415);
+
+  assert.deepEqual(listRequestsByCitizen('c2'), [], 'no rejected request reached the module');
   await new Promise((resolve) => server.close(resolve));
 });

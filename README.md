@@ -23,6 +23,8 @@ npm start     # http://127.0.0.1:3000
 
 The server binds to `127.0.0.1` only. Set `PORT` to use another port. The store is in memory and resets when the process stops.
 
+The server also refuses requests that come from another site, because the loopback bind alone does not stop a browser. The `Host` header must be `127.0.0.1:<port>` or `localhost:<port>` (else 421). An `Origin` header, when sent, must be `http://` plus one of those (else 403). Every `POST` needs `Content-Type: application/json` (else 415).
+
 Citizen routes:
 
 | Route | Calls |
