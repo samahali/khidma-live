@@ -11,4 +11,11 @@ export default [
       globals: globals.node,
     },
   },
+  {
+    // The screen scripts run in the browser.
+    files: ['src/public/**/*.js'],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
 ];

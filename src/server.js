@@ -6,6 +6,7 @@
 // status and a JSON body. Handlers are pure functions (request in, status plus
 // body out) so the node:http listener below is a thin adapter over them.
 import http from 'node:http';
+import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import {
   submitRequest,
@@ -21,7 +22,8 @@ import {
 
 /**
  * @typedef {{ method: string, path: string, rawBody?: string }} ShellRequest
- * @typedef {{ status: number, body: unknown, headers?: Record<string, string> }} ShellResponse
+ * @typedef {{ status: number, body: unknown, headers?: Record<string, string>, text?: string }} ShellResponse
+ *   `text`, when set, is written as the raw response body instead of JSON.
  * @typedef {(params: Record<string, string>, body: any) => ShellResponse} RouteHandler
  * @typedef {{ method: string, pattern: RegExp, handle: RouteHandler }} Route
  * @typedef {import('./requests.js').CodedError} CodedError
@@ -92,6 +94,59 @@ export function errorResponse(error) {
   if (coded.referenceNumber !== undefined) body.referenceNumber = coded.referenceNumber;
   if (coded.reviewerId !== undefined) body.reviewerId = coded.reviewerId;
   return { status, body };
+}
+
+// --- Static screen files ------------------------------------------------------
+
+/**
+ * Headers on every static file. The CSP allows scripts, styles, and fetches
+ * from this server only, and forbids framing by another page.
+ */
+const STATIC_HEADERS = Object.freeze({
+  'Content-Security-Policy': "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+  'X-Content-Type-Options': 'nosniff',
+  'Cache-Control': 'no-store',
+});
+
+/**
+ * The fixed allow-list of screen files. Each file path is built from this
+ * module's URL, never from the request, and the files are read once at load.
+ * @type {ReadonlyMap<string, { contentType: string, text: string }>}
+ */
+const STATIC_FILES = new Map(
+  [
+    ['/', 'index.html', 'text/html; charset=utf-8'],
+    ['/citizen.js', 'citizen.js', 'text/javascript; charset=utf-8'],
+    ['/styles.css', 'styles.css', 'text/css; charset=utf-8'],
+  ].map(([path, file, contentType]) => [
+    path,
+    { contentType, text: readFileSync(new URL(`./public/${file}`, import.meta.url), 'utf8') },
+  ]),
+);
+
+/**
+ * Serve one allow-listed file. GET and HEAD only; the listener drops the body
+ * for HEAD.
+ * @param {string} method
+ * @param {string} pathname
+ * @returns {ShellResponse | null} null when the path is not a static file
+ */
+function staticResponse(method, pathname) {
+  const file = STATIC_FILES.get(pathname);
+  if (!file) return null;
+  if (method !== 'GET' && method !== 'HEAD') {
+    return {
+      status: 405,
+      headers: { Allow: 'GET, HEAD' },
+      body: { code: 'METHOD_NOT_ALLOWED', message: `${method} is not allowed on ${pathname}` },
+    };
+  }
+  return {
+    status: 200,
+    headers: { ...STATIC_HEADERS, 'Content-Type': file.contentType },
+    body: null,
+    text: file.text,
+  };
 }
 
 // --- Routes ------------------------------------------------------------------
@@ -177,6 +232,8 @@ function parseBody(rawBody) {
  */
 export function handleRequest({ method, path, rawBody }) {
   const pathname = path.split('?')[0];
+  const screen = staticResponse(method, pathname);
+  if (screen) return screen;
   /** @type {string[]} */
   const allowed = [];
   for (const route of ROUTES) {
@@ -309,8 +366,14 @@ async function listener(req, res) {
   } catch (error) {
     response = errorResponse(error);
   }
-  res.writeHead(response.status, { 'Content-Type': 'application/json', ...(response.headers ?? {}) });
-  res.end(JSON.stringify(response.body));
+  // JSON.stringify(undefined) is undefined; send an empty body rather than throw.
+  const payload = response.text ?? JSON.stringify(response.body) ?? '';
+  res.writeHead(response.status, {
+    'Content-Type': 'application/json',
+    ...(response.headers ?? {}),
+    'Content-Length': String(Buffer.byteLength(payload)),
+  });
+  res.end(method === 'HEAD' ? undefined : payload);
 }
 
 /**

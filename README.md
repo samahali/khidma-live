@@ -21,9 +21,21 @@ npm install   # dev tooling only; the server has no runtime dependencies
 npm start     # http://127.0.0.1:3000
 ```
 
+Open http://127.0.0.1:3000/ for the citizen screen. Type a citizen id, choose **Show my requests**, and submit, withdraw, or resubmit requests. Each request shows its status marker and its history, including any return note. Every error from the server appears in the red box with its message. The screen shows the Withdraw and Resubmit buttons on every request; the module decides whether the action is allowed. There is no reviewer screen yet, so move a request through review with the reviewer routes below (for example with `curl`).
+
 The server binds to `127.0.0.1` only. Set `PORT` to use another port. The store is in memory and resets when the process stops.
 
 The server also refuses requests that come from another site, because the loopback bind alone does not stop a browser. The `Host` header must be `127.0.0.1:<port>` or `localhost:<port>` (else 421). An `Origin` header, when sent, must be `http://` plus one of those (else 403). Every `POST` needs `Content-Type: application/json` (else 415).
+
+Screen files (GET and HEAD only, else 405):
+
+| Path | File |
+|------|------|
+| `/` | `src/public/index.html` |
+| `/citizen.js` | `src/public/citizen.js` |
+| `/styles.css` | `src/public/styles.css` |
+
+Only these three paths are served. The server reads the files once at start, so restart it after you edit one. Each file is sent with `Content-Security-Policy: default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'` and `X-Content-Type-Options: nosniff`.
 
 Citizen routes:
 
