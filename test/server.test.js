@@ -35,6 +35,14 @@ test('POST /requests/:id/resubmit puts a NEEDS_INFO request back in SUBMITTED', 
   assert.equal(res.body.status, Status.SUBMITTED);
 });
 
+test('list, withdraw, list, submit again over HTTP shows WITHDRAWN and allows the new request (#1)', () => {
+  const created = post('/requests', c1);
+  assert.equal(get('/citizens/c1/requests').body[0].status, Status.SUBMITTED);
+  assert.equal(post(`/requests/${created.body.id}/withdraw`, { citizenId: 'c1' }).status, 200);
+  assert.equal(get('/citizens/c1/requests').body[0].status, Status.WITHDRAWN);
+  assert.equal(post('/requests', c1).status, 201);
+});
+
 test('GET /requests/:id returns the request', () => {
   const r = submitRequest(c1);
   const res = get(`/requests/${r.id}`);
