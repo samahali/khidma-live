@@ -32,6 +32,49 @@ test('resetStore clears citizen list snapshots', () => {
   assert.deepEqual(listRequestsByCitizen('snapshot-citizen'), []);
 });
 
+// Regression for #1: each test reads the list BEFORE the status change, so a
+// list cached on the store size would return the old status.
+const statusInList = (citizenId, id) => listRequestsByCitizen(citizenId).find((r) => r.id === id)?.status;
+
+test('citizen list shows WITHDRAWN after a withdraw that follows a list read', () => {
+  const r = submitRequest({ citizenId: 'list-c', serviceId: 'certificate' });
+  assert.equal(statusInList('list-c', r.id), Status.SUBMITTED);
+  withdrawRequest(r.id, 'list-c');
+  assert.equal(statusInList('list-c', r.id), Status.WITHDRAWN);
+});
+
+test('citizen can submit again after a withdraw that follows a list read', () => {
+  const r = submitRequest({ citizenId: 'list-c', serviceId: 'certificate' });
+  listRequestsByCitizen('list-c');
+  withdrawRequest(r.id, 'list-c');
+  const again = submitRequest({ citizenId: 'list-c', serviceId: 'certificate' });
+  assert.equal(again.status, Status.SUBMITTED);
+});
+
+test('citizen list shows each review status after a list read', () => {
+  const r = submitRequest({ citizenId: 'list-c', serviceId: 'certificate' });
+  listRequestsByCitizen('list-c');
+  startReview(r.id, 'reviewer-list');
+  assert.equal(statusInList('list-c', r.id), Status.UNDER_REVIEW);
+  returnForInfo(r.id, 'reviewer-list', 'Photo is blurry');
+  assert.equal(statusInList('list-c', r.id), Status.NEEDS_INFO);
+  resubmitRequest(r.id, 'list-c');
+  assert.equal(statusInList('list-c', r.id), Status.SUBMITTED);
+  startReview(r.id, 'reviewer-list');
+  decide(r.id, Status.REJECTED);
+  assert.equal(statusInList('list-c', r.id), Status.REJECTED);
+});
+
+test('citizen can submit again after a decision that follows a list read', () => {
+  const r = submitRequest({ citizenId: 'list-c', serviceId: 'certificate' });
+  listRequestsByCitizen('list-c');
+  startReview(r.id, 'reviewer-list');
+  listRequestsByCitizen('list-c');
+  decide(r.id, Status.APPROVED);
+  const again = submitRequest({ citizenId: 'list-c', serviceId: 'certificate' });
+  assert.equal(again.status, Status.SUBMITTED);
+});
+
 test('a new request starts as SUBMITTED', () => {
   const r = submitRequest({ citizenId: 'c1', serviceId: 'birth-certificate' });
   assert.equal(r.status, Status.SUBMITTED);
