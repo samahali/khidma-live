@@ -366,7 +366,8 @@ async function listener(req, res) {
   } catch (error) {
     response = errorResponse(error);
   }
-  const payload = response.text ?? JSON.stringify(response.body);
+  // JSON.stringify(undefined) is undefined; send an empty body rather than throw.
+  const payload = response.text ?? JSON.stringify(response.body) ?? '';
   res.writeHead(response.status, {
     'Content-Type': 'application/json',
     ...(response.headers ?? {}),

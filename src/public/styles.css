@@ -6,6 +6,7 @@
   --page: #f4f6f8;
   --panel: #ffffff;
   --line: #d5dbe2;
+  --control-border: #6b7482;
   --accent: #0b5cad;
   --accent-ink: #ffffff;
   --error-bg: #fdecec;
@@ -87,11 +88,13 @@ h2 {
   min-width: 0;
   padding: 0.5rem;
   font: inherit;
-  border: 1px solid var(--line);
+  min-height: 2.75rem;
+  border: 1px solid var(--control-border);
   border-radius: var(--radius);
 }
 
 .button {
+  min-height: 2.75rem;
   padding: 0.5rem 0.9rem;
   font: inherit;
   border: 1px solid var(--accent);
@@ -106,9 +109,10 @@ h2 {
   color: var(--accent);
 }
 
-.button:focus-visible,
-.form-row input:focus-visible {
-  outline: 3px solid #f2a900;
+/* One focus ring for every control on every screen. The accent colour has
+   6.7:1 contrast on white, above the 3:1 that WCAG 1.4.11 asks for. */
+:focus-visible {
+  outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -276,7 +280,6 @@ h2 {
 .status--withdrawn {
   color: #4b5563;
   background: #eceff3;
-  text-decoration: line-through;
 }
 .status--withdrawn::before {
   content: "\2013"; /* en dash */

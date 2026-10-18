@@ -117,10 +117,10 @@ test('a card shows the service, the reviewer, and both actions for its request i
   assert.ok(texts.includes('reviewer-1'));
   const buttons = nodes.filter((n) => n.tag === 'button');
   assert.deepEqual(
-    buttons.map((b) => [b.attrs['data-action'], b.attrs['data-id'], b.text]),
+    buttons.map((b) => [b.attrs['data-action'], b.attrs['data-id'], b.text, b.attrs['aria-label']]),
     [
-      ['withdraw', 'id-UNDER_REVIEW', 'Withdraw'],
-      ['resubmit', 'id-UNDER_REVIEW', 'Resubmit'],
+      ['withdraw', 'id-UNDER_REVIEW', 'Withdraw', 'Withdraw KH-2026-000001'],
+      ['resubmit', 'id-UNDER_REVIEW', 'Resubmit', 'Resubmit KH-2026-000001'],
     ],
   );
 });
@@ -199,6 +199,13 @@ test('toDom puts markup-looking values in textContent, never as markup', () => {
   assert.ok(service, 'the hostile value is plain text content');
   assert.equal(service.tag, 'dd');
   assert.ok(all(card).every((el) => el.tag !== 'img'));
+});
+
+test('toDom converts every text and attribute value to a string', () => {
+  const el = toDom({ tag: 'span', text: 42, attrs: { 'data-id': 7 } }, fakeDocument);
+  assert.equal(typeof el.textContent, 'string');
+  assert.equal(el.textContent, '42');
+  assert.equal(typeof el.attributes['data-id'], 'string');
 });
 
 test('toDom sets only allow-listed attributes', () => {
@@ -363,4 +370,12 @@ test('the citizen screen shows a network failure and a screen failure instead of
   };
   await broken.show();
   assert.match(broken.els.error.textContent, /^The screen failed: Error: render broke$/);
+});
+
+test('controls meet the 3:1 non-text contrast rule: dark input borders and one accent focus ring', () => {
+  const css = readFileSync(new URL('../src/public/styles.css', import.meta.url), 'utf8');
+  assert.match(css, /--control-border: #6b7482;/);
+  assert.match(css, /\.form-row input \{[^}]*border: 1px solid var\(--control-border\)/);
+  assert.match(css, /:focus-visible \{\s*outline: 3px solid var\(--accent\)/);
+  assert.ok(!css.includes('#f2a900'), 'the old low-contrast focus colour is gone');
 });

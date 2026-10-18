@@ -113,7 +113,13 @@ export function renderRequest(record) {
   const button = (action, label) => ({
     tag: 'button',
     className: 'button button--secondary',
-    attrs: { type: 'button', 'data-action': action, 'data-id': record.id },
+    attrs: {
+      type: 'button',
+      'data-action': action,
+      'data-id': record.id,
+      // Every card has the same two buttons; the name says which request.
+      'aria-label': `${label} ${String(record.referenceNumber)}`,
+    },
     text: label,
   });
   return {
