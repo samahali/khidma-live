@@ -1,0 +1,46 @@
+{
+  "specVersion": "0.1",
+  "id": "slice-khidma-o2-citizen-screen",
+  "planId": "plan-khidma-local-demo",
+  "outcomeId": "o2-screens",
+  "basedOn": {
+    "planRevision": 1,
+    "reconciliationId": "reconciliation-khidma-local-demo-r1-after-slice-1",
+    "repositories": {
+      "atlas-apex/khidma-live": "ec7d132124e1a9fc137c3f8af983cdcd82e801c5"
+    }
+  },
+  "objective": "npm start also serves a citizen screen at / in plain HTML, CSS, and JavaScript. The screen submits, withdraws, and resubmits through the citizen routes. It lists the citizen's requests with status and history.",
+  "why": "Every o2 criterion is not-verified. The citizen routes exist and are tested, and the screen needs no module code. The screen relies on the fixed listRequestsByCitizen at 6ceeb42. Prerequisites: slice-khidma-o1-reviewer-actions and samahali/khidma-live#2 are merged before this slice starts. The reviewer routes let a request reach every status, so ac2-1 and ac2-3 can be proved. Partial: ac2-3 and ac2-5 cover the citizen screen only. Consistency across both screens is checked when the reviewer screen ships. The slice also delivers the ac1-7 banner on the citizen screen only, so ac1-7 stays partial.",
+  "contributesTo": [
+    "ac2-1",
+    "ac2-3",
+    "ac2-4",
+    "ac2-5"
+  ],
+  "scope": {
+    "include": [
+      "Static files from a fixed allow-list: /, /citizen.js, and /styles.css. Each file path is built from import.meta.url and never from the request.",
+      "Static routes accept GET and HEAD only. Other methods return 405. The query string is ignored.",
+      "Static responses set the correct Content-Type per file through a header override in the handler response.",
+      "Static responses set Content-Security-Policy default-src 'self' and X-Content-Type-Options nosniff. No inline script or style.",
+      "A citizen screen with a typed-in citizen id, submit, withdraw, and resubmit actions, and a list of that citizen's requests.",
+      "The DOM is built with createElement and textContent only. Every value passes through String() before display. No innerHTML.",
+      "One shared stylesheet with a distinct marker for each of the six statuses.",
+      "Per-request history, including return notes.",
+      "A visible error region that shows the message of every non-2xx response.",
+      "The fictional-demo banner in markup and style that the reviewer screen can reuse.",
+      "The layout is usable at 400px width with no horizontal scroll.",
+      "Route tests for each static file, its Content-Type, the CSP and nosniff headers, and the 405 case.",
+      "Unit tests for the pure render functions with records in all six statuses and a return note."
+    ],
+    "exclude": [
+      "The reviewer screen and the reviewer queue and load routes.",
+      "The ac1-6 exports. They wait for atlas-apex/khidma-live#20.",
+      "Any framework, bundler, or new dependency (C1).",
+      "Business rules in the screen (C3). The screen shows module results only.",
+      "Sign-in, authorisation, or persistence.",
+      "The request body size cap. It has its own ticket."
+    ]
+  }
+}

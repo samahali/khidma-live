@@ -28,8 +28,8 @@ Recorded from the Naqid challenge of revision 1.
 - Uncoded module errors (not found, validation, state) map to one 4xx status by a stated rule in the server. Coded business-rule errors keep their code. An unexpected error returns 500.
 - The screens are a disposable demo shell. They are not the seed of the React production UI from the company stack.
 - Route handlers are written as pure functions, request in and status plus body out, so they can map to Lambda handlers later. This is a preference, not a criterion.
-- Delivery order is o1 citizen routes, then o2 citizen screen, then o1 reviewer routes, then o2 reviewer screen. After the first slice the only demo is curl. The operator accepted that interim state on 2026-10-16.
-- The ac1-6 exports (`listRequestsByStatus`, `countActiveReviews`) ship in their own KH ticket and PR, merged before the first slice. The slice itself changes no module code.
+- Delivery order is o1 citizen routes, then o2 citizen screen, then o1 reviewer routes, then o2 reviewer screen. After the first slice the only demo is curl. The operator accepted that interim state on 2026-10-16. Superseded on 2026-10-18 by the changed order in the Order section.
+- The ac1-6 exports (`listRequestsByStatus`, `countActiveReviews`) ship in their own KH ticket and PR, merged before the first slice. The slice itself changes no module code. Superseded on 2026-10-18: the exports now follow the citizen screen and wait for atlas-apex/khidma-live#20.
 
 ## Proof
 
@@ -43,18 +43,25 @@ Recorded from the Naqid challenge of revision 1.
 - ac2-1: A browser walk-through on the citizen screen: submit, withdraw, resubmit after a return, with the request list updating.
 - ac2-2: A browser walk-through on the reviewer screen: start review, return with a note, approve, reject, with the load indicator changing.
 - ac2-3: One screenshot showing all six statuses with distinct markers and a history that includes a return note.
-- ac2-4: A browser walk-through that triggers a duplicate submit and a wrong-owner withdraw, each shown on screen with its message.
+- ac2-4: A browser walk-through that triggers a duplicate submit and a wrong-owner withdraw, each shown on screen with its message. For the wrong-owner case, submit as one citizen ID, then change the typed-in ID and withdraw.
 - ac2-5: Screenshots of both screens at a 400px wide viewport with no horizontal scroll.
 
 ## Order
 
 o1 first, because the screens call its routes. Then o2. Within the build: the ac1-6 exports as a KH ticket, then the o1 citizen routes, then the o2 citizen screen, then the o1 reviewer routes, then the o2 reviewer screen.
 
+Changed on 2026-10-18: the o1 citizen routes are done. The next order is the o1 reviewer action routes, then the o2 citizen screen. Then come the ac1-6 exports, the reviewer queue and load routes, and the o2 reviewer screen. The reviewer action routes need no ac1-6 export. They let a request reach every status, so the citizen screen can be proved.
+
 ## Challenges
 
 - 2026-10-16, revision 1: Naqid verdict proceed-with-changes. Two serious findings, both accepted: the reviewer-screen data gap against C3 (now ac1-6) and the open bind and identity assumptions after dropping C4 (now ac1-7). The remaining findings are recorded under Assumptions.
 - 2026-10-16, slice-khidma-o1-citizen-path: Naqid verdict proceed-with-changes. Accepted: the scope arrays were re-serialized after a comma-split defect, get by id was placed in scope, ac1-2 and ac1-7 are labelled partial, one socket test on port 0 was added, the error rule became a table with a constructor-based fallback, and the ac1-6 exports moved to their own KH ticket. The operator accepted a curl-only interim state after the first slice.
+- 2026-10-18, slice-khidma-o2-citizen-screen: Naqid verdict proceed-with-changes. Serious: without reviewer routes, resubmit, return notes, and four statuses cannot be shown. The operator chose to ship the reviewer action routes first. Accepted: textContent-only rendering, a strict CSP, nosniff, per-file Content-Type, and samahali/khidma-live#2 as a hard prerequisite.
 
 ## Revision history
 
 - **Revision 1** set two outcomes: a local server with JSON routes, and a citizen screen plus a reviewer screen. Twelve criteria after the challenge.
+
+## Checks
+
+- 2026-10-18, 6388ece: checked, no change.
