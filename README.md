@@ -36,6 +36,16 @@ Citizen routes:
 | `GET /requests/by-reference/:referenceNumber` | `getRequestByReference` |
 | `GET /citizens/:citizenId/requests` | `listRequestsByCitizen` |
 
+Reviewer routes:
+
+| Route | Calls |
+|-------|-------|
+| `POST /requests/:id/start-review` with `{ "reviewerId" }` | `startReview` |
+| `POST /requests/:id/return` with `{ "reviewerId", "note" }` | `returnForInfo` |
+| `POST /requests/:id/decide` with `{ "decision" }` (`APPROVED` or `REJECTED`) | `decide` |
+
+`decide` does not check the reviewer yet, so any caller can approve or reject a request under review. A later ticket adds the check and a `reviewerId` field.
+
 Errors return JSON with `code` and `message`, plus `referenceNumber` or `reviewerId` when the module error carries one. Business-rule codes keep their status: `DUPLICATE_REQUEST` and `REVIEWER_AT_CAPACITY` are 409, `NOT_REQUEST_OWNER` and `NOT_ASSIGNED_REVIEWER` are 403. A not-found error is 404, a state error (`Cannot ...`) is 409, and any other validation error is 400.
 
 ```bash
@@ -44,4 +54,4 @@ curl -s -X POST http://127.0.0.1:3000/requests \
   -d '{"citizenId":"c1","serviceId":"birth-certificate"}'
 ```
 
-Reviewer routes (start review, return for info, decide) are not served yet.
+The reviewer queue and the active-review load are not served yet.

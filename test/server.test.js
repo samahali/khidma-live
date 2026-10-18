@@ -1,7 +1,7 @@
 import { test, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { Status, resetStore, submitRequest, startReview, returnForInfo, withdrawRequest, listRequestsByCitizen } from '../src/requests.js';
+import { Status, resetStore, submitRequest, startReview, returnForInfo, withdrawRequest, listRequestsByCitizen, MAX_ACTIVE_REVIEWS } from '../src/requests.js';
 import { handleRequest, errorResponse, startServer, checkSameMachine } from '../src/server.js';
 
 beforeEach(() => resetStore());
@@ -84,7 +84,73 @@ test('NOT_REQUEST_OWNER returns 403 with code, message, and referenceNumber', ()
   const res = post(`/requests/${r.id}/withdraw`, { citizenId: 'someone-else' });
   assert.equal(res.status, 403);
   assert.equal(res.body.code, 'NOT_REQUEST_OWNER');
+  assert.match(res.body.message, /someone-else/);
   assert.equal(res.body.referenceNumber, r.referenceNumber);
+});
+
+// --- Reviewer action routes (#6) ---------------------------------------------
+
+test('POST /requests/:id/start-review moves SUBMITTED to UNDER_REVIEW for the reviewer', () => {
+  const r = submitRequest(c1);
+  const res = post(`/requests/${r.id}/start-review`, { reviewerId: 'reviewer-1' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, Status.UNDER_REVIEW);
+  assert.equal(res.body.reviewerId, 'reviewer-1');
+});
+
+test('POST /requests/:id/return moves UNDER_REVIEW to NEEDS_INFO and keeps the note', () => {
+  const r = submitRequest(c1);
+  startReview(r.id, 'reviewer-1');
+  const res = post(`/requests/${r.id}/return`, { reviewerId: 'reviewer-1', note: 'Attach a copy of your ID' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, Status.NEEDS_INFO);
+  assert.equal(res.body.history.at(-1).note, 'Attach a copy of your ID');
+});
+
+test('POST /requests/:id/decide approves or rejects a request under review', () => {
+  const a = submitRequest(c1);
+  startReview(a.id, 'reviewer-1');
+  const approved = post(`/requests/${a.id}/decide`, { decision: Status.APPROVED });
+  assert.equal(approved.status, 200);
+  assert.equal(approved.body.status, Status.APPROVED);
+
+  const b = submitRequest({ citizenId: 'c2', serviceId: 'birth-certificate' });
+  startReview(b.id, 'reviewer-1');
+  const rejected = post(`/requests/${b.id}/decide`, { decision: Status.REJECTED });
+  assert.equal(rejected.status, 200);
+  assert.equal(rejected.body.status, Status.REJECTED);
+});
+
+test('POST /requests/:id/decide with an invalid decision returns 400 with the module message', () => {
+  const r = submitRequest(c1);
+  startReview(r.id, 'reviewer-1');
+  const res = post(`/requests/${r.id}/decide`, { decision: 'MAYBE' });
+  assert.equal(res.status, 400);
+  assert.equal(res.body.code, 'VALIDATION_ERROR');
+  assert.equal(res.body.message, 'decision must be APPROVED or REJECTED');
+});
+
+test('start-review route returns REVIEWER_AT_CAPACITY as 409 with code, message, and reviewerId', () => {
+  for (let i = 0; i < MAX_ACTIVE_REVIEWS; i++) {
+    const r = submitRequest({ citizenId: `cap-${i}`, serviceId: 'birth-certificate' });
+    assert.equal(post(`/requests/${r.id}/start-review`, { reviewerId: 'busy' }).status, 200);
+  }
+  const extra = submitRequest({ citizenId: 'cap-extra', serviceId: 'birth-certificate' });
+  const res = post(`/requests/${extra.id}/start-review`, { reviewerId: 'busy' });
+  assert.equal(res.status, 409);
+  assert.equal(res.body.code, 'REVIEWER_AT_CAPACITY');
+  assert.match(res.body.message, /Reviewer busy already has \d+ requests under review/);
+  assert.equal(res.body.reviewerId, 'busy');
+});
+
+test('return route returns NOT_ASSIGNED_REVIEWER as 403 with code, message, and reviewerId', () => {
+  const r = submitRequest(c1);
+  startReview(r.id, 'reviewer-1');
+  const res = post(`/requests/${r.id}/return`, { reviewerId: 'reviewer-2', note: 'Need more' });
+  assert.equal(res.status, 403);
+  assert.equal(res.body.code, 'NOT_ASSIGNED_REVIEWER');
+  assert.match(res.body.message, /reviewer-2/);
+  assert.equal(res.body.reviewerId, 'reviewer-2');
 });
 
 test('REVIEWER_AT_CAPACITY and NOT_ASSIGNED_REVIEWER map to 409 and 403 with reviewerId', () => {

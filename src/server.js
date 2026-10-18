@@ -14,6 +14,9 @@ import {
   getRequest,
   getRequestByReference,
   listRequestsByCitizen,
+  startReview,
+  returnForInfo,
+  decide,
 } from './requests.js';
 
 /**
@@ -94,8 +97,9 @@ export function errorResponse(error) {
 // --- Routes ------------------------------------------------------------------
 
 /**
- * Citizen-path routes. Reviewer routes (start review, return for info,
- * decide) belong to the next slice.
+ * Citizen-path routes and reviewer action routes. Each handler passes the
+ * body straight to the module; the reviewer queue and load routes wait for
+ * the ac1-6 exports.
  * @type {Route[]}
  */
 const ROUTES = [
@@ -128,6 +132,22 @@ const ROUTES = [
     method: 'GET',
     pattern: /^\/citizens\/(?<citizenId>[^/]+)\/requests$/,
     handle: (params) => ({ status: 200, body: listRequestsByCitizen(params.citizenId) }),
+  },
+  {
+    method: 'POST',
+    pattern: /^\/requests\/(?<id>[^/]+)\/start-review$/,
+    handle: (params, body) => ({ status: 200, body: startReview(params.id, body.reviewerId) }),
+  },
+  {
+    method: 'POST',
+    pattern: /^\/requests\/(?<id>[^/]+)\/return$/,
+    handle: (params, body) => ({ status: 200, body: returnForInfo(params.id, body.reviewerId, body.note) }),
+  },
+  {
+    method: 'POST',
+    pattern: /^\/requests\/(?<id>[^/]+)\/decide$/,
+    // decide() takes no reviewer id yet. Any caller can decide; see the slice exclude list.
+    handle: (params, body) => ({ status: 200, body: decide(params.id, body.decision) }),
   },
 ];
 
