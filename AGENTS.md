@@ -36,7 +36,7 @@ npm start   # http://127.0.0.1:3000, set PORT to change
 
 - `src/requests.js` — the request lifecycle: `submitRequest`, `withdrawRequest`, `startReview`, `returnForInfo`, `resubmitRequest`, `decide`, `getRequest`, `getRequestByReference`, `listRequestsByCitizen`, `resetStore`
 - `test/requests.test.js` — one `test()` per rule, `beforeEach(resetStore)` (27 tests at the 2026-10-15 handover)
-- `src/server.js` — the local HTTP shell: `handleRequest` (pure router, request in and status plus body out), `errorResponse` (the one error-mapping table), `startServer({ port })`. Citizen routes only so far.
+- `src/server.js` — the local HTTP shell: `handleRequest` (pure router, request in and status plus body out), `errorResponse` (the one error-mapping table), `startServer({ port })`, `checkSameMachine` (the Host, Origin, and Content-Type guard). Citizen routes plus the reviewer action routes (start review, return for info, decide). No reviewer queue or load route yet.
 - `test/server.test.js` — one test per route, one per error family, one socket round trip on port 0
 - `tickets/` — work items as markdown (`KH-NNN.md`). KH-101, KH-103, KH-106 are done. KH-107 and KH-109 were open at the 2026-10-15 handover. Check GitHub Issues for current status.
 - `.squad/` — squad-kit plans and story intakes for the three implemented tickets
