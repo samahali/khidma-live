@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Khidma citizen requests (demo)</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/citizen.js"></script>
+</head>
+<body>
+  <div class="demo-banner" role="note">
+    <strong>Fictional demo.</strong> No sign-in: anyone can act as any citizen.
+    Data lives in memory and resets when the server stops.
+  </div>
+
+  <main class="page">
+    <h1>Khidma: my requests</h1>
+
+    <section class="panel" aria-labelledby="who-heading">
+      <h2 id="who-heading">Who are you?</h2>
+      <form id="citizen-form" class="form-row">
+        <label for="citizen-id">Citizen id</label>
+        <input id="citizen-id" name="citizenId" autocomplete="off" spellcheck="false" required>
+        <button type="submit" class="button">Show my requests</button>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="submit-heading">
+      <h2 id="submit-heading">Submit a request</h2>
+      <form id="submit-form" class="form-row">
+        <label for="service-id">Service</label>
+        <input id="service-id" name="serviceId" list="services" autocomplete="off" spellcheck="false">
+        <datalist id="services">
+          <option value="birth-certificate"></option>
+          <option value="passport-renewal"></option>
+          <option value="business-licence"></option>
+        </datalist>
+        <button type="submit" class="button">Submit</button>
+      </form>
+      <p class="hint">Uses the citizen id above.</p>
+    </section>
+
+    <div id="error" class="error" role="alert" hidden></div>
+    <p id="notice" class="notice" role="status"></p>
+
+    <section id="requests" class="panel" aria-live="polite">
+      <p class="empty">Type a citizen id and choose Show my requests.</p>
+    </section>
+  </main>
+</body>
+</html>

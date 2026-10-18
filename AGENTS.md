@@ -36,8 +36,10 @@ npm start   # http://127.0.0.1:3000, set PORT to change
 
 - `src/requests.js` — the request lifecycle: `submitRequest`, `withdrawRequest`, `startReview`, `returnForInfo`, `resubmitRequest`, `decide`, `getRequest`, `getRequestByReference`, `listRequestsByCitizen`, `resetStore`
 - `test/requests.test.js` — one `test()` per rule, `beforeEach(resetStore)` (27 tests at the 2026-10-15 handover)
-- `src/server.js` — the local HTTP shell: `handleRequest` (pure router, request in and status plus body out), `errorResponse` (the one error-mapping table), `startServer({ port })`, `checkSameMachine` (the Host, Origin, and Content-Type guard). Citizen routes plus the reviewer action routes (start review, return for info, decide). No reviewer queue or load route yet.
-- `test/server.test.js` — one test per route, one per error family, one socket round trip on port 0
+- `src/server.js` — the local HTTP shell: `handleRequest` (pure router, request in and status plus body out), `errorResponse` (the one error-mapping table), `startServer({ port })`, `checkSameMachine` (the Host, Origin, and Content-Type guard), and the static screen files (`STATIC_FILES`, raw `text` responses). Citizen routes plus the reviewer action routes (start review, return for info, decide). No reviewer queue or load route yet.
+- `src/public/` — the citizen screen: `index.html`, `citizen.js` (pure render functions plus a `boot()` that wires the page), `styles.css` (shared by every screen, with one marker per status). Served from a fixed allow-list; the server reads them once at start.
+- `test/server.test.js` — one test per route, one per error family, one socket round trip on port 0, and the static-file routes
+- `test/citizen.test.js` — render functions in all six statuses, safe DOM building, and the page wiring driven against the real router with a fake page
 - `tickets/` — work items as markdown (`KH-NNN.md`). KH-101, KH-103, KH-106 are done. KH-107 and KH-109 were open at the 2026-10-15 handover. Check GitHub Issues for current status.
 - `.squad/` — squad-kit plans and story intakes for the three implemented tickets
 - `.claude/commands/` — squad-kit slash commands (`/squad-plan`, `/squad-new-story`)
@@ -51,6 +53,7 @@ npm start   # http://127.0.0.1:3000, set PORT to change
 - `submitRequest`, `withdrawRequest`, `returnForInfo`, and `resubmitRequest` accept an injected `now`. `transition()` takes an optional `now` and an optional `note`, but `startReview` and `decide` do not pass `now` yet. Prefer injected time in new code.
 - Tickets ask for one test per rule and no new dependencies. Keep both.
 - The server owns no business rules. A handler passes its input straight to `src/requests.js` and never checks status, ownership, or counts. Add a rule to the module with a KH ticket and tests, never to a route.
+- The screens own no rules either. They send what the person types and show what the server returns. Build DOM with `toDom()` (createElement and textContent), never `innerHTML`. No inline script or style: the CSP blocks them.
 - No TypeScript. Write plain ES modules with `// @ts-check` JSDoc types that match the existing style.
 
 ## Gotchas

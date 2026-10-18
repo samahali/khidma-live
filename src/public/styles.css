@@ -1,0 +1,287 @@
+/* Khidma demo screens. Shared by the citizen screen and, later, the reviewer screen. */
+
+:root {
+  --ink: #1d232b;
+  --muted: #5b6573;
+  --page: #f4f6f8;
+  --panel: #ffffff;
+  --line: #d5dbe2;
+  --accent: #0b5cad;
+  --accent-ink: #ffffff;
+  --error-bg: #fdecec;
+  --error-ink: #8a1212;
+  --banner-bg: #fff4cc;
+  --banner-ink: #5c4400;
+  --radius: 6px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--page);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  line-height: 1.45;
+  background: var(--page);
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0 0 1rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.75rem;
+}
+
+/* --- Demo banner (ac1-7). Reused by every screen. --- */
+
+.demo-banner {
+  padding: 0.6rem 1rem;
+  background: var(--banner-bg);
+  color: var(--banner-ink);
+  border-bottom: 2px solid #e0c35c;
+  font-size: 0.95rem;
+}
+
+/* --- Layout. Usable at 400px with no horizontal scroll. --- */
+
+.page {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-row label {
+  font-weight: 600;
+  flex-basis: 100%;
+}
+
+.form-row input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 0.5rem;
+  font: inherit;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.button {
+  padding: 0.5rem 0.9rem;
+  font: inherit;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+}
+
+.button--secondary {
+  background: var(--panel);
+  color: var(--accent);
+}
+
+.button:focus-visible,
+.form-row input:focus-visible {
+  outline: 3px solid #f2a900;
+  outline-offset: 2px;
+}
+
+.hint,
+.empty {
+  color: var(--muted);
+  margin: 0.5rem 0 0;
+}
+
+/* --- Error region (ac2-4) and notices. --- */
+
+.error {
+  background: var(--error-bg);
+  color: var(--error-ink);
+  border: 1px solid var(--error-ink);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.notice {
+  min-height: 1.2em;
+  margin: 0 0 1rem;
+  color: var(--muted);
+}
+
+/* --- Request cards. --- */
+
+.requests,
+.history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.request {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.request__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.request__details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.request__details dt {
+  color: var(--muted);
+}
+
+.request__details dd {
+  margin: 0;
+}
+
+.request__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.history {
+  border-left: 3px solid var(--line);
+  padding-left: 0.75rem;
+}
+
+.history__entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  padding: 0.3rem 0;
+}
+
+.history__time {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.history__note {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  background: #f3effa;
+  border-radius: var(--radius);
+}
+
+/* --- Status markers (ac2-3). Each status differs in colour, border, and symbol,
+       so the marker does not rely on colour alone. --- */
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status::before {
+  font-weight: 700;
+}
+
+.status--submitted {
+  color: #0b5cad;
+  background: #e6f0fb;
+}
+.status--submitted::before {
+  content: "\25CB"; /* white circle */
+}
+
+.status--under-review {
+  color: #8a5300;
+  background: #fff3df;
+  border-style: dashed;
+}
+.status--under-review::before {
+  content: "\25D0"; /* half circle */
+}
+
+.status--needs-info {
+  color: #6b2fa3;
+  background: #f3effa;
+  border-style: dotted;
+}
+.status--needs-info::before {
+  content: "?";
+}
+
+.status--approved {
+  color: #1d6b2f;
+  background: #e5f5e9;
+}
+.status--approved::before {
+  content: "\2713"; /* check mark */
+}
+
+.status--rejected {
+  color: #a11a1a;
+  background: #fdecec;
+  border-style: double;
+  border-width: 3px;
+}
+.status--rejected::before {
+  content: "\2717"; /* ballot x */
+}
+
+.status--withdrawn {
+  color: #4b5563;
+  background: #eceff3;
+  text-decoration: line-through;
+}
+.status--withdrawn::before {
+  content: "\2013"; /* en dash */
+}
+
+.status--unknown {
+  color: var(--muted);
+}

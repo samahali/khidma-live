@@ -358,3 +358,96 @@ test('the server rejects the cross-site requests from #2 before they reach a rou
   assert.deepEqual(listRequestsByCitizen('c2'), [], 'no rejected request reached the module');
   await new Promise((resolve) => server.close(resolve));
 });
+
+// --- Citizen screen static files (#7) ----------------------------------------
+
+const STATIC_CASES = [
+  ['/', 'text/html; charset=utf-8', /<!doctype html>/i],
+  ['/citizen.js', 'text/javascript; charset=utf-8', /export function renderRequest/],
+  ['/styles.css', 'text/css; charset=utf-8', /\.status--approved/],
+];
+
+for (const [path, contentType, marker] of STATIC_CASES) {
+  test(`GET ${path} serves the screen file with its Content-Type, CSP, and nosniff`, () => {
+    const res = get(path);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers['Content-Type'], contentType);
+    assert.match(res.headers['Content-Security-Policy'], /^default-src 'self'/);
+    assert.match(res.headers['Content-Security-Policy'], /frame-ancestors 'none'/);
+    assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
+    assert.match(res.text, marker);
+  });
+}
+
+test('static routes allow GET and HEAD only; other methods get 405', () => {
+  for (const method of ['POST', 'PUT', 'DELETE']) {
+    const res = handleRequest({ method, path: '/citizen.js', rawBody: '' });
+    assert.equal(res.status, 405);
+    assert.equal(res.headers.Allow, 'GET, HEAD');
+    assert.equal(res.body.code, 'METHOD_NOT_ALLOWED');
+  }
+  assert.equal(handleRequest({ method: 'HEAD', path: '/' }).status, 200);
+});
+
+test('static routes ignore the query string', () => {
+  assert.equal(get('/styles.css?v=2').status, 200);
+  assert.equal(get('/?citizen=c1').text, get('/').text);
+});
+
+test('a path outside the allow-list is not served', () => {
+  for (const path of ['/index.html', '/requests.js', '/server.js', '/../src/requests.js', '/public/citizen.js', '/%2e%2e/package.json']) {
+    const res = get(path);
+    assert.equal(res.status, 404, path);
+    assert.equal(res.text, undefined, path);
+  }
+});
+
+test('JSON routes carry no screen headers', () => {
+  const res = post('/requests', c1);
+  assert.equal(res.text, undefined);
+  assert.equal(res.headers, undefined);
+});
+
+/**
+ * Send one raw request and keep the raw body text and headers.
+ * @param {number} port
+ * @param {string} method
+ * @param {string} path
+ * @returns {Promise<{ status: number, headers: http.IncomingHttpHeaders, text: string }>}
+ */
+function rawText(port, method, path) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, method, path }, (res) => {
+      let text = '';
+      res.on('data', (chunk) => (text += chunk));
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, text }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+test('over a socket, GET / sends the page as-is and HEAD / sends the headers with no body', async () => {
+  const server = await startServer({ port: 0 });
+  after(() => server.close());
+  const { port } = /** @type {import('node:net').AddressInfo} */ (server.address());
+
+  const page = await rawText(port, 'GET', '/');
+  assert.equal(page.status, 200);
+  assert.equal(page.headers['content-type'], 'text/html; charset=utf-8');
+  assert.equal(page.headers['x-content-type-options'], 'nosniff');
+  assert.match(page.headers['content-security-policy'] ?? '', /^default-src 'self'/);
+  assert.match(page.text, /^<!doctype html>/i);
+  assert.equal(Number(page.headers['content-length']), Buffer.byteLength(page.text));
+
+  const head = await rawText(port, 'HEAD', '/');
+  assert.equal(head.status, 200);
+  assert.equal(head.headers['content-type'], 'text/html; charset=utf-8');
+  assert.equal(head.headers['content-length'], page.headers['content-length']);
+  assert.equal(head.text, '');
+
+  const api = await rawText(port, 'GET', '/citizens/c1/requests');
+  assert.equal(api.headers['content-type'], 'application/json');
+  assert.equal(api.text, '[]');
+  await new Promise((resolve) => server.close(resolve));
+});
