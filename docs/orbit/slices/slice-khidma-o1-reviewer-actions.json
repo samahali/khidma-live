@@ -1,0 +1,40 @@
+{
+  "specVersion": "0.1",
+  "id": "slice-khidma-o1-reviewer-actions",
+  "planId": "plan-khidma-local-demo",
+  "outcomeId": "o1-local-server",
+  "basedOn": {
+    "planRevision": 1,
+    "reconciliationId": "reconciliation-khidma-local-demo-r1-after-slice-1",
+    "repositories": {
+      "atlas-apex/khidma-live": "ec7d132124e1a9fc137c3f8af983cdcd82e801c5"
+    }
+  },
+  "objective": "Add JSON routes for start review, return for info, and decide. Each route calls the unchanged src/requests.js export and maps errors with the existing table.",
+  "why": "The reconciliation finds ac1-2 partial because these three routes are missing. It finds ac1-3 partial because route tests for REVIEWER_AT_CAPACITY and NOT_ASSIGNED_REVIEWER are missing. The three exports already exist, so this slice does not wait for atlas-apex/khidma-live#20. Without these routes no request can reach UNDER_REVIEW, NEEDS_INFO, APPROVED, or REJECTED over HTTP. The citizen screen slice needs those states to prove ac2-1 and ac2-3. Basis: the reconciliation observed ec7d132. Later commits 6388ece and 6ceeb42 change only listRequestsByCitizen, which no o1 criterion depends on.",
+  "contributesTo": [
+    "ac1-2",
+    "ac1-3",
+    "ac1-4"
+  ],
+  "scope": {
+    "include": [
+      "POST /requests/:id/start-review with a reviewerId body. It calls startReview.",
+      "POST /requests/:id/return with a reviewerId and note body. It calls returnForInfo.",
+      "POST /requests/:id/decide with a decision body of APPROVED or REJECTED. It calls decide.",
+      "One route test per new route in test/server.test.js.",
+      "Route tests that check status, code, and message for REVIEWER_AT_CAPACITY and NOT_ASSIGNED_REVIEWER.",
+      "A message check in the existing NOT_REQUEST_OWNER route test.",
+      "README route table updated with the three reviewer routes.",
+      "All existing tests still pass.",
+      "A route test for an invalid decision value on a request under review. It returns a 4xx with the module message."
+    ],
+    "exclude": [
+      "The ac1-6 exports and any reviewer queue or load route. They wait for atlas-apex/khidma-live#20.",
+      "A reviewer check in decide. The decide body carries no reviewerId for now. The follow-up ticket that adds the check also adds reviewerId to the body.",
+      "Any HTML, CSS, or browser JavaScript. That is o2.",
+      "Authentication, authorisation, or persistence.",
+      "Host, Origin, and Content-Type checks. They ship with samahali/khidma-live#2."
+    ]
+  }
+}
