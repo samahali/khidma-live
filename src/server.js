@@ -205,6 +205,52 @@ function decodeParams(groups) {
   return out;
 }
 
+// --- Same-machine guard --------------------------------------------------------
+
+/** Host names that mean "this machine". The server binds to loopback only. */
+const LOOPBACK_HOSTS = Object.freeze(['127.0.0.1', 'localhost']);
+
+/**
+ * Reject a request that did not come from a page or client on this machine.
+ * The loopback bind alone does not stop a browser: a page from another site
+ * can send a "simple" POST without a CORS preflight, and a DNS-rebound page
+ * reaches the server under a foreign Host name. Transport rule only; the
+ * module still owns every business rule.
+ *
+ * | Check                                              | Status |
+ * |----------------------------------------------------|--------|
+ * | Host is not 127.0.0.1:<port> or localhost:<port>   | 421    |
+ * | Origin is present and is not http://<allowed host> | 403    |
+ * | POST whose Content-Type is not application/json    | 415    |
+ *
+ * @param {{ method: string, port: number, headers: Record<string, string | string[] | undefined> }} request
+ * @returns {ShellResponse | null} the rejection, or null when the request may continue
+ */
+export function checkSameMachine({ method, port, headers }) {
+  const allowedHosts = LOOPBACK_HOSTS.map((name) => `${name}:${port}`);
+  const host = String(headers.host ?? '').toLowerCase();
+  if (!allowedHosts.includes(host)) {
+    return {
+      status: 421,
+      body: { code: 'MISDIRECTED_REQUEST', message: 'Host must be 127.0.0.1 or localhost with the server port' },
+    };
+  }
+  const origin = headers.origin;
+  if (origin !== undefined && !allowedHosts.some((h) => String(origin).toLowerCase() === `http://${h}`)) {
+    return { status: 403, body: { code: 'FORBIDDEN_ORIGIN', message: 'Requests from other sites are not allowed' } };
+  }
+  if (method === 'POST') {
+    const mediaType = String(headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
+    if (mediaType !== 'application/json') {
+      return {
+        status: 415,
+        body: { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'POST requests need Content-Type: application/json' },
+      };
+    }
+  }
+  return null;
+}
+
 // --- node:http adapter -------------------------------------------------------
 
 /**
@@ -228,9 +274,18 @@ function readBody(req) {
 async function listener(req, res) {
   /** @type {ShellResponse} */
   let response;
+  const method = req.method ?? 'GET';
+  const rejection = checkSameMachine({ method, port: req.socket.localPort ?? 0, headers: req.headers });
+  if (rejection) {
+    // Answer before reading the body, and do not keep the connection.
+    req.resume();
+    res.writeHead(rejection.status, { 'Content-Type': 'application/json', Connection: 'close' });
+    res.end(JSON.stringify(rejection.body));
+    return;
+  }
   try {
     const rawBody = await readBody(req);
-    response = handleRequest({ method: req.method ?? 'GET', path: req.url ?? '/', rawBody });
+    response = handleRequest({ method, path: req.url ?? '/', rawBody });
   } catch (error) {
     response = errorResponse(error);
   }
